@@ -202,4 +202,67 @@ router.post('/:id/invite', async (req, res) => {
   }
 });
 
+// Approve member and send Slack invite
+router.post('/:id/approve-member', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { email, subscriptionId } = req.body;
+
+    if (!email || !subscriptionId) {
+      return res.status(400).json({ error: 'Email and subscription ID are required' });
+    }
+
+    // Get group details
+    const { data: group, error: groupError } = await supabase
+      .from('groups')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (groupError || !group) {
+      console.error('Error fetching group:', groupError);
+      return res.status(404).json({ error: 'Group not found' });
+    }
+
+    // Get subscription details
+    const { data: subscription, error: subError } = await supabase
+      .from('subscriptions')
+      .select(`
+        *,
+        users (
+          id,
+          email,
+          raw_user_meta_data
+        ),
+        plans (*)
+      `)
+      .eq('id', subscriptionId)
+      .single();
+
+    if (subError || !subscription) {
+      console.error('Error fetching subscription:', subError);
+      return res.status(404).json({ error: 'Subscription not found' });
+    }
+
+    // Update subscription status
+    const { error: updateError } = await supabase
+      .from('subscriptions')
+      .update({ status: 'active' })
+      .eq('id', subscriptionId);
+
+    if (updateError) {
+      console.error('Error updating subscription:', updateError);
+      return res.status(500).json({ error: 'Failed to update subscription' });
+    }
+
+    // Send Slack invite email
+    await emailService.sendSlackInviteEmail(email, group);
+
+    res.json({ message: 'Member approved and invited successfully' });
+  } catch (error) {
+    console.error('Error approving member:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router; 
