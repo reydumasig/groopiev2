@@ -1,5 +1,5 @@
 export type UserRole = 'subscriber' | 'creator' | 'admin';
-export type GroupStatus = 'pending' | 'active' | 'inactive';
+export type GroupStatus = 'pending' | 'active' | 'suspended';
 export type SubscriptionStatus = 'active' | 'past_due' | 'canceled' | 'incomplete';
 
 export interface User {
@@ -21,8 +21,17 @@ export interface Group {
   creator_id: string;
   status: GroupStatus;
   slack_channel_id: string | null;
+  slack_channel_name: string | null;
+  slack_channel_url: string | null;
   created_at: string;
   updated_at: string;
+  users?: {
+    id: string;
+    email: string;
+    raw_user_meta_data?: {
+      full_name?: string;
+    };
+  };
 }
 
 export interface Plan {

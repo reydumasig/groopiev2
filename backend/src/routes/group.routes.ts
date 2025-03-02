@@ -1,25 +1,16 @@
 import { Router } from 'express';
 import { supabase } from '../utils/supabase';
 import { Group, GroupStatus } from '../types/database';
-import { slackService } from '../services/slack.service';
-import nodemailer from 'nodemailer';
+import { SlackService } from '../services/slack.service';
+import { EmailService } from '../services/email.service';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
 const router = Router();
+const slackService = new SlackService();
+const emailService = new EmailService();
 const SLACK_WORKSPACE_INVITE = 'https://join.slack.com/t/groopie-workspace/shared_invite/zt-2dqr0xnxc-Ij~Hy~7mBBBXDzYKRXTYA';
-
-// Set up email transport
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: false,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS
-  }
-});
 
 // Get all groups
 router.get('/', async (req, res) => {
@@ -201,48 +192,13 @@ router.post('/:id/invite', async (req, res) => {
       return res.status(400).json({ error: 'Group has no Slack channel' });
     }
 
-    // Send email with Slack workspace invite
-    try {
-      console.log('Sending Slack workspace invite email to:', email);
-      await transporter.sendMail({
-        from: '"Groopie Support" <support@joingroopie.com>',
-        to: email,
-        subject: 'Join Your Groopie Group on Slack!',
-        html: `
-          <h1>Welcome to ${group.name}! 🎉</h1>
-          
-          <h2>Next Steps:</h2>
-          <ol>
-            <li>Join our Slack workspace using this invite link:<br>
-              <a href="${SLACK_WORKSPACE_INVITE}">${SLACK_WORKSPACE_INVITE}</a>
-            </li>
-            <li>Once you've joined the workspace, your group's channel "#${group.slack_channel_name}" will be ready for you.</li>
-          </ol>
+    // Send Slack invite email
+    await emailService.sendSlackInviteEmail(email, group);
 
-          <p>If you have any questions or need assistance, please don't hesitate to contact us at support@joingroopie.com</p>
-
-          <p>Best regards,<br>The Groopie Team</p>
-        `
-      });
-      console.log('Slack workspace invite email sent successfully');
-    } catch (emailError) {
-      console.error('Failed to send Slack workspace invite email:', emailError);
-      return res.status(500).json({ error: 'Failed to send invite email' });
-    }
-
-    // Try to invite to Slack channel if already in workspace
-    try {
-      await slackService.inviteToChannel(group.slack_channel_id, email);
-      console.log('User invited to Slack channel successfully');
-    } catch (slackError) {
-      console.warn('Could not invite to Slack channel (user may not be in workspace yet):', slackError);
-      // Don't return error here since we already sent the workspace invite email
-    }
-
-    res.json({ message: 'Invite sent successfully' });
+    res.json({ message: 'Slack invite sent successfully' });
   } catch (error) {
-    console.error('Error inviting to Slack:', error);
-    res.status(500).json({ error: 'Failed to send invite' });
+    console.error('Error sending Slack invite:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

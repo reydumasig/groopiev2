@@ -1,12 +1,15 @@
 import { Router } from 'express';
 import { supabase } from '../utils/supabase';
-import { slackService } from '../services/slack.service';
-import nodemailer from 'nodemailer';
+import { isAdmin } from '../middleware/auth';
+import { SlackService } from '../services/slack.service';
+import { EmailService } from '../services/email.service';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
 const router = Router();
+const slackService = new SlackService();
+const emailService = new EmailService();
 const SLACK_WORKSPACE_INVITE = 'https://join.slack.com/t/groopie-workspace/shared_invite/zt-2dqr0xnxc-Ij~Hy~7mBBBXDzYKRXTYA';
 
 // Middleware to check if user is admin
@@ -88,62 +91,37 @@ const transporter = nodemailer.createTransport({
 router.post('/groups/:id/approve', isAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    console.log(`Starting approval process for group ID: ${id}`);
 
-    // Get group details with user email
-    console.log('Fetching group details...');
+    // Get group with creator info
     const { data: group, error: groupError } = await supabase
       .from('groups')
       .select(`
         *,
         users!inner (
           id,
-          email
+          email,
+          raw_user_meta_data
         )
       `)
       .eq('id', id)
       .single();
 
     if (groupError) {
-      console.error('Error fetching group details:', {
-        error: groupError,
-        groupId: id,
-        query: 'groups with users join'
-      });
-      return res.status(404).json({ error: 'Group not found' });
+      return res.status(400).json({ error: groupError.message });
     }
 
-    if (!group) {
-      console.error('Group not found:', {
-        groupId: id
-      });
-      return res.status(404).json({ error: 'Group not found' });
-    }
-
-    // If group is already approved, return success
-    if (group.status === 'active') {
-      console.log('Group is already approved:', {
-        groupId: id,
-        groupName: group.name
-      });
-      return res.json({
-        message: 'Group is already approved'
-      });
-    }
-
-    // First try to just update the status
-    console.log('Updating group status to active...');
-    const { error: statusUpdateError } = await supabase
+    // Update group status
+    const { error: updateError } = await supabase
       .from('groups')
       .update({ status: 'active' })
       .eq('id', id);
 
-    if (statusUpdateError) {
-      console.error('Failed to update group status:', statusUpdateError);
-      return res.status(500).json({ error: 'Failed to update group status' });
+    if (updateError) {
+      return res.status(400).json({ error: updateError.message });
     }
 
-    console.log('Successfully updated group status to active');
+    // Send approval email
+    await emailService.sendGroupApprovalEmail(group);
 
     // Try to update Slack details if we have them
     if (!group.slack_channel_id) {
@@ -176,50 +154,15 @@ router.post('/groups/:id/approve', isAdmin, async (req, res) => {
           if (slackUpdateError) {
             console.warn('Could not update Slack details, but group is approved:', slackUpdateError);
           }
-
-          // Send email to group creator with Slack workspace invite
-          try {
-            if (!group.users?.email) {
-              throw new Error('No user email found');
-            }
-
-            console.log('Sending Slack workspace invite email to:', group.users.email);
-            await transporter.sendMail({
-              from: '"Groopie Support" <support@joingroopie.com>',
-              to: group.users.email,
-              subject: 'Your Groopie Group Has Been Approved!',
-              html: `
-                <h1>Your Group Has Been Approved! 🎉</h1>
-                <p>Great news! Your group "${group.name}" has been approved and is now active.</p>
-                
-                <h2>Next Steps:</h2>
-                <ol>
-                  <li>Join our Slack workspace using this invite link:<br>
-                    <a href="${SLACK_WORKSPACE_INVITE}">${SLACK_WORKSPACE_INVITE}</a>
-                  </li>
-                  <li>Once you've joined the workspace, your group's channel "#${normalizedName}" will be ready for you.</li>
-                </ol>
-
-                <p>If you have any questions or need assistance, please don't hesitate to contact us at support@joingroopie.com</p>
-
-                <p>Best regards,<br>The Groopie Team</p>
-              `
-            });
-            console.log('Slack workspace invite email sent successfully');
-          } catch (emailError) {
-            console.error('Failed to send Slack workspace invite email:', emailError);
-          }
         }
       } catch (slackError) {
-        console.warn('Could not set up Slack channel, but group is approved:', slackError);
+        console.error('Error setting up Slack channel:', slackError);
       }
     }
 
-    res.json({ 
-      message: 'Group approved successfully'
-    });
+    res.json({ message: 'Group approved successfully' });
   } catch (error) {
-    console.error('Error in group approval process:', error);
+    console.error('Error approving group:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
