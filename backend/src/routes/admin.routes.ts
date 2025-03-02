@@ -12,40 +12,6 @@ const slackService = new SlackService();
 const emailService = new EmailService();
 const SLACK_WORKSPACE_INVITE = 'https://join.slack.com/t/groopie-workspace/shared_invite/zt-2dqr0xnxc-Ij~Hy~7mBBBXDzYKRXTYA';
 
-// Middleware to check if user is admin
-async function isAdmin(req: any, res: any, next: any) {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      return res.status(401).json({ error: 'No authorization header' });
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
-    if (authError || !user) {
-      console.log('Auth error or no user:', authError);
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
-    // Check admin role in user metadata
-    const isAdminInMetadata = user.user_metadata?.role === 'admin';
-    
-    if (!isAdminInMetadata) {
-      console.log('User is not admin:', {
-        user_metadata: user.user_metadata
-      });
-      return res.status(403).json({ error: 'Forbidden' });
-    }
-
-    req.user = user;
-    next();
-  } catch (error) {
-    console.error('Error in isAdmin middleware:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-}
-
 // Get pending groups
 router.get('/groups/pending', isAdmin, async (req, res) => {
   try {
@@ -73,17 +39,6 @@ router.get('/groups/pending', isAdmin, async (req, res) => {
   } catch (error) {
     console.error('Error in pending groups endpoint:', error);
     res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Set up email transport
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: false,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS
   }
 });
 
