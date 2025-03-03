@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { supabase } from '../utils/supabase';
-import { isAdmin } from '../middleware/auth';
 import { SlackService } from '../services/slack.service';
 import { EmailService } from '../services/email.service';
 import dotenv from 'dotenv';
@@ -73,17 +72,6 @@ router.get('/groups/pending', isAdmin, async (req, res) => {
   } catch (error) {
     console.error('Error in pending groups endpoint:', error);
     res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Set up email transport
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: false,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS
   }
 });
 
