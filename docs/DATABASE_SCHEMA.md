@@ -2,6 +2,18 @@
 
 ## Version History
 
+### v2.1.6 (Update) - Add Group Settings Management - 2024-03-28
+- Added ability for creators to update group details
+- Added functionality to modify subscription tiers
+- Enhanced plan management capabilities
+- Updated group and plan update policies
+
+### v2.1.5 (Update) - Add Group Reactivation - 2024-03-28
+- Added `reactivate_group` function for admin use
+- Added ability to reactivate suspended groups
+- Updated admin interface to show suspended groups
+- Enhanced group management capabilities
+
 ### v2.1.4 (Update) - Fix Admin View Security - 2024-03-28
 - Removed RLS from admin_group_details view
 - Implemented security through view definition
@@ -180,6 +192,15 @@ Security:
 
 ## Functions
 
+### `public.reactivate_group(group_id uuid)`
+```sql
+SECURITY DEFINER function that:
+- Checks if the calling user is an admin
+- Updates group status from 'inactive' to 'active'
+- Updates the updated_at timestamp
+- Returns boolean indicating success
+```
+
 ### `public.approve_group(group_id uuid)`
 ```sql
 SECURITY DEFINER function that:
@@ -315,20 +336,25 @@ Action: Creates profile with:
 - Can be upgraded to 'creator'
 - 'admin' is special role
 
-### Group Creation
+### Group Creation and Management
 - Only 'creator' or 'admin' can create groups
 - Groups start as 'pending'
 - Must be activated to be visible
+- Creators can update group details and subscription tiers
+- Changes to subscription tiers don't affect existing subscriptions
 
 ### Subscriptions
 - Start as 'pending'
 - Must be activated
 - One per user per group
+- Tied to specific subscription tier/plan
 
 ### Plans
 - Belong to a group
 - Price must be >= 0
 - Features stored as array
+- Can be updated by group creator
+- Changes don't affect existing subscriptions
 
 ### Security
 - All tables have RLS enabled
