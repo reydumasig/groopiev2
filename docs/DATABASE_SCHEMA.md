@@ -2,6 +2,12 @@
 
 ## Version History
 
+### v2.1.4 (Update) - Fix Admin View Security - 2024-03-28
+- Removed RLS from admin_group_details view
+- Implemented security through view definition
+- Updated view permissions model
+- Maintained admin-only access through WHERE clause
+
 ### v2.1.3 (Update) - Fix Admin Access and Group Relationships - 2024-03-28
 - Fixed relationship between groups and auth.users through creator_id
 - Added secure view for auth.users access
@@ -146,6 +152,23 @@ Columns returned:
 - member_count (COUNT of group_members)
 ```
 
+### `public.admin_group_details`
+```sql
+Secure view for admin dashboard that returns:
+- All columns from groups
+- creator_name (from profiles.full_name)
+- creator_avatar (from profiles.avatar_url)
+- creator_email (from auth.users.email)
+- member_count (COUNT of group_members)
+- created_at
+- updated_at
+
+Security:
+- Access controlled through underlying tables' RLS
+- Direct grant to authenticated users
+- Admin check in view definition
+```
+
 ## Indexes
 ```sql
 - profiles: role
@@ -153,6 +176,35 @@ Columns returned:
 - group_members: user_id
 - subscriptions: user_id, group_id
 - plans: group_id
+```
+
+## Functions
+
+### `public.approve_group(group_id uuid)`
+```sql
+SECURITY DEFINER function that:
+- Checks if the calling user is an admin
+- Updates group status from 'pending' to 'active'
+- Updates the updated_at timestamp
+- Returns boolean indicating success
+```
+
+### `public.suspend_group(group_id uuid)`
+```sql
+SECURITY DEFINER function that:
+- Checks if the calling user is an admin
+- Updates group status to 'inactive'
+- Updates the updated_at timestamp
+- Returns boolean indicating success
+```
+
+### `public.update_group_slack(group_id uuid, slack_url text)`
+```sql
+SECURITY DEFINER function that:
+- Checks if the calling user is an admin
+- Updates slack_channel_url
+- Updates the updated_at timestamp
+- Returns boolean indicating success
 ```
 
 ## Row Level Security (RLS) Policies
@@ -163,14 +215,59 @@ Columns returned:
 - UPDATE: auth.uid() = id
 ```
 
-### Groups
+### Groups Table
+
+The groups table has separate policies for different operations:
+
+1. Creator Access:
 ```sql
-- SELECT: creator_id = auth.uid() OR EXISTS (
-    SELECT 1 FROM group_members 
-    WHERE group_members.group_id = groups.id 
-    AND group_members.user_id = auth.uid()
-  )
-- ALL: creator_id = auth.uid()
+CREATE POLICY "Groups viewable by creator" ON public.groups
+    FOR SELECT USING (creator_id = auth.uid());
+```
+
+2. Member Access:
+```sql
+CREATE POLICY "Groups viewable by members" ON public.groups
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM group_members 
+            WHERE group_members.group_id = id 
+            AND group_members.user_id = auth.uid()
+        )
+    );
+```
+
+3. Admin Access:
+```sql
+CREATE POLICY "Groups viewable by admins" ON public.groups
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM profiles
+            WHERE id = auth.uid() 
+            AND role = 'admin'
+        )
+    );
+
+CREATE POLICY "Groups updatable by admins" ON public.groups
+    FOR UPDATE USING (
+        EXISTS (
+            SELECT 1 FROM profiles
+            WHERE id = auth.uid() 
+            AND role = 'admin'
+        )
+    );
+```
+
+4. Admin Management:
+```sql
+CREATE POLICY "Groups manageable by admins" ON public.groups
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM profiles
+            WHERE id = auth.uid() 
+            AND role = 'admin'
+        )
+    );
 ```
 
 ### Group Members
