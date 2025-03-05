@@ -55,11 +55,14 @@ module.exports = {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
-      ringWidth: {
-        DEFAULT: "1px",
+      ringColor: {
+        DEFAULT: "var(--ring)",
       },
       ringOpacity: {
         DEFAULT: "0.5",
+      },
+      ringWidth: {
+        DEFAULT: "1px",
       },
     },
   },
