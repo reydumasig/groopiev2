@@ -5,7 +5,11 @@
       "staging": true
     }
   },
-  "buildCommand": "cd frontend && npm install && npm run build",
-  "installCommand": "cd frontend && npm install",
-  "outputDirectory": "frontend/.next"
+  "projectSettings": {
+    "framework": "nextjs",
+    "buildCommand": "cd frontend && npm install && npm run build",
+    "installCommand": "cd frontend && npm install",
+    "outputDirectory": "frontend/.next",
+    "devCommand": "cd frontend && npm run dev"
+  }
 } 
