@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { supabase } from '../utils/supabase';
-import { isAdmin } from '../middleware/auth';
 import { SlackService } from '../services/slack.service';
 import { EmailService } from '../services/email.service';
 import dotenv from 'dotenv';

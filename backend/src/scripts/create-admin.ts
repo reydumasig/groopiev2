@@ -34,6 +34,23 @@ async function makeAdmin() {
       throw updateError;
     }
 
+    // Also update the profile table
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({ 
+        role: 'admin',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', user.id);
+
+    if (profileError) {
+      console.error('Error updating profile:', {
+        message: profileError.message,
+        details: profileError,
+      });
+      throw profileError;
+    }
+
     console.log('User role updated to admin successfully:', {
       id: user.id,
       email: user.email,
