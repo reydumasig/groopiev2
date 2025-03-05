@@ -11,16 +11,17 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import Link from 'next/link'
 
 const formSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
-  password: z.string().min(1, 'Password is required')
 })
 
 type FormData = z.infer<typeof formSchema>
 
-export function LoginForm() {
+export function ForgotPasswordForm() {
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
@@ -42,29 +43,48 @@ export function LoginForm() {
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
       )
 
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password
-      })
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+        data.email,
+        {
+          redirectTo: `${window.location.origin}/auth/reset-password`,
+        }
+      )
 
-      if (signInError) throw signInError
+      if (resetError) throw resetError
 
-      router.push('/dashboard')
-      router.refresh()
+      setSuccess(true)
     } catch (error) {
-      console.error('Login error:', error)
-      setError(error instanceof Error ? error.message : 'An error occurred during login')
+      console.error('Password reset error:', error)
+      setError(error instanceof Error ? error.message : 'An error occurred while sending reset instructions')
     } finally {
       setIsLoading(false)
     }
   }
 
+  if (success) {
+    return (
+      <Card className="w-[400px]">
+        <CardHeader>
+          <CardTitle>Check Your Email</CardTitle>
+          <CardDescription>
+            We've sent password reset instructions to your email address.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild className="w-full">
+            <Link href="/login">Return to Login</Link>
+          </Button>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <Card className="w-[400px]">
       <CardHeader>
-        <CardTitle>Welcome Back</CardTitle>
+        <CardTitle>Reset Password</CardTitle>
         <CardDescription>
-          Sign in to your Groopie account
+          Enter your email address and we'll send you instructions to reset your password.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -82,19 +102,6 @@ export function LoginForm() {
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="Enter your password"
-              {...register('password')}
-            />
-            {errors.password && (
-              <p className="text-sm text-red-500">{errors.password.message}</p>
-            )}
-          </div>
-
           {error && (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>
@@ -102,8 +109,14 @@ export function LoginForm() {
           )}
 
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? 'Signing in...' : 'Sign In'}
+            {isLoading ? 'Sending Instructions...' : 'Send Reset Instructions'}
           </Button>
+
+          <div className="text-center">
+            <Link href="/login" className="text-sm text-gray-500 hover:text-gray-700">
+              Back to Login
+            </Link>
+          </div>
         </form>
       </CardContent>
     </Card>

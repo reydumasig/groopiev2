@@ -19,6 +19,7 @@ const userNavigation: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard' },
   { name: 'Profile', href: '/dashboard/profile' },
   { name: 'My Groups', href: '/dashboard/groups' },
+  { name: 'Password', href: '/dashboard/settings/password' },
 ]
 
 const adminNavigation: NavItem[] = [

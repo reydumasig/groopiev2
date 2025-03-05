@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Check, Copy, ExternalLink } from 'lucide-react'
+import Link from 'next/link'
 
 const formSchema = z.object({
   fullName: z.string().min(2, 'Full name must be at least 2 characters'),
@@ -128,9 +129,16 @@ export default function ProfilePage() {
               </Alert>
             )}
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Saving...' : 'Save Changes'}
-            </Button>
+            <div className="flex justify-between items-center pt-4">
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? 'Saving...' : 'Save Changes'}
+              </Button>
+              <Button variant="outline" asChild>
+                <Link href="/dashboard/settings/password">
+                  Change Password
+                </Link>
+              </Button>
+            </div>
           </form>
         </CardContent>
       </Card>
