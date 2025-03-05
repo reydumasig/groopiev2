@@ -1,0 +1,21 @@
+{
+  "git": {
+    "deploymentEnabled": {
+      "main": false,
+      "staging": true
+    }
+  },
+  "buildCommand": "cd frontend && npm install && npm run build",
+  "outputDirectory": ".next",
+  "installCommand": "cd frontend && npm install",
+  "builds": [
+    {
+      "src": "frontend/package.json",
+      "use": "@vercel/next"
+    }
+  ],
+  "env": {
+    "NEXT_PUBLIC_ENV": "staging"
+  },
+  "rootDirectory": "frontend"
+} 
