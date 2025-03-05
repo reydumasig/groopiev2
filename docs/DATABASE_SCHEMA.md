@@ -2,6 +2,13 @@
 
 ## Version History
 
+### v2.1.7 (Update) - Add Payment History and Dashboard Stats - 2024-03-28
+- Added payment_history table with proper RLS policies
+- Implemented 20/80 revenue split tracking
+- Added payment_history_details view for easier querying
+- Enhanced dashboard with earnings and subscriber stats
+- Added $500 payout threshold tracking
+
 ### v2.1.6 (Update) - Add Group Settings Management - 2024-03-28
 - Added ability for creators to update group details
 - Added functionality to modify subscription tiers
@@ -142,6 +149,18 @@ PRIMARY KEY: (group_id, user_id)
 - updated_at: TIMESTAMPTZ
 ```
 
+### `public.payment_history`
+```sql
+- id: UUID (PK)
+- subscription_id: UUID (refs subscriptions.id)
+- amount: DECIMAL(10,2)
+- platform_fee: DECIMAL(10,2) (20% of amount)
+- creator_share: DECIMAL(10,2) (80% of amount)
+- status: payment_status ENUM
+- created_at: TIMESTAMPTZ
+- payout_batch_id: UUID
+```
+
 ## Views
 
 ### `public.users`
@@ -179,6 +198,16 @@ Security:
 - Access controlled through underlying tables' RLS
 - Direct grant to authenticated users
 - Admin check in view definition
+```
+
+### `public.payment_history_details`
+```sql
+Columns returned:
+- All columns from payment_history
+- group_id (from subscriptions)
+- subscriber_id (from subscriptions.user_id)
+- creator_id (from groups)
+- group_name (from groups)
 ```
 
 ## Indexes
@@ -307,6 +336,13 @@ CREATE POLICY "Groups manageable by admins" ON public.groups
 ```sql
 - SELECT: Group is active
 - ALL: Group creator can manage
+```
+
+### Payment History
+```sql
+- SELECT: Creators can view payments for their groups
+- SELECT: Users can view their own payments
+- INSERT: System can insert payments
 ```
 
 ## Cascade Rules
