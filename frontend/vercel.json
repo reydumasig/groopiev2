@@ -1,10 +1,7 @@
 {
-  "git": {
-    "deploymentEnabled": {
-      "main": false,
-      "staging": true
-    }
-  },
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
   "framework": "nextjs",
   "outputDirectory": ".next"
 } 
