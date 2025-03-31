@@ -2,6 +2,46 @@
 
 This document outlines the required checks and validations before making significant changes to our codebase. Always review this checklist before implementing major features or making structural changes.
 
+## Documentation Rules
+
+### Location and Structure
+1. **Root Documentation**
+   - `README.md`: Main project documentation
+   - `CONTRIBUTING.md`: Contribution guidelines
+   - `CHANGELOG.md`: Version history and changes
+   - `LICENSE`: Project license
+
+2. **Documentation Directory (`/docs`)**
+   - Technical specifications
+   - Architecture decisions
+   - API documentation
+   - Database schemas
+   - Style guides
+
+### Documentation Standards
+1. **File Naming**
+   - Use UPPERCASE for root-level documentation
+   - Use kebab-case for specific documentation files
+   - Always end with `.md` extension
+
+2. **Content Structure**
+   - Start with a clear title and description
+   - Use proper markdown headings (h1 -> h6)
+   - Include table of contents for long documents
+   - Add last updated date
+
+3. **Documentation Types**
+   - Technical: Architecture, APIs, Database
+   - Process: Workflows, Guidelines
+   - User: Features, Usage
+   - Development: Setup, Contributing
+
+4. **Update Requirements**
+   - Update docs before implementing changes
+   - Keep changelogs current
+   - Review documentation in PRs
+   - Version documentation with major changes
+
 ## Making Changes
 
 When making changes to the database schema:

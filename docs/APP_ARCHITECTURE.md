@@ -1,20 +1,22 @@
 # Groopie Application Architecture
 
 ## Overview
-Groopie is a platform that enables creators to monetize their Slack communities through subscription-based access. The platform manages member access, payments, and community engagement through an automated system.
+Groopie is a platform that enables creators to monetize their Slack communities through subscription-based access. The platform handles group creation, subscription management, and automated Slack channel access.
 
 ## Tech Stack
 
 ### Frontend
 - **Framework**: Next.js 14.1.0 with App Router
+- **Language**: TypeScript
 - **Styling**: Tailwind CSS, Shadcn/UI
 - **State Management**: Zustand
 - **Form Handling**: React Hook Form + Zod
-- **API Integration**: Supabase Client
+- **API Client**: Supabase Client
 
 ### Backend
 - **Runtime**: Node.js
 - **Framework**: Express
+- **Language**: TypeScript
 - **Database**: PostgreSQL (via Supabase)
 - **Authentication**: Supabase Auth
 - **Email Service**: SendGrid
@@ -25,170 +27,234 @@ Groopie is a platform that enables creators to monetize their Slack communities 
 - **Hosting**: Vercel (Frontend), Railway (Backend)
 - **Community Platform**: Slack API
 - **Version Control**: Git
+- **CI/CD**: GitHub Actions
 
-## User Roles and Flows
+## Core Entities
 
-### 1. Subscriber Role
-```mermaid
-graph TD
-    A[Visit Platform] --> B[Browse Groups]
-    B --> C[Select Group]
-    C --> D[Choose Subscription Tier]
-    D --> E[Payment Process]
-    E --> F[Access Granted]
-    F --> G[Join Slack Channel]
+### User Roles
+1. **Subscriber**
+   - Default role for new users
+   - Can browse and join groups
+   - Access subscribed group content
+
+2. **Creator**
+   - Can create and manage groups
+   - Set subscription tiers
+   - Monitor member activity
+   - View earnings
+
+3. **Admin**
+   - Approve/reject groups
+   - Manage all users
+   - Access platform metrics
+   - Handle support issues
+
+### Data Models
+
+```typescript
+interface User {
+  id: string;
+  email: string;
+  role: 'subscriber' | 'creator' | 'admin';
+  profile: {
+    full_name: string;
+    avatar_url?: string;
+  };
+}
+
+interface Group {
+  id: string;
+  name: string;
+  description: string;
+  creator_id: string;
+  slack_channel_url: string;
+  status: 'pending' | 'active' | 'inactive';
+}
+
+interface Plan {
+  id: string;
+  group_id: string;
+  name: string;
+  price: number;
+  features: string[];
+}
+
+interface Subscription {
+  id: string;
+  user_id: string;
+  group_id: string;
+  plan_id: string;
+  status: 'active' | 'inactive';
+}
 ```
 
-#### Subscriber Features
-- Browse available groups
-- View subscription tiers
-- Process payments
-- Access Slack channels
-- Manage subscriptions
-- View payment history
+## User Flows
 
-### 2. Creator Role
-```mermaid
-graph TD
-    A[Create Account] --> B[Verify Creator Status]
-    B --> C[Create Group]
-    C --> D[Set Subscription Tiers]
-    D --> E[Await Approval]
-    E --> F[Manage Members]
-    F --> G[View Analytics]
+### Subscriber Flow
+1. **Authentication**
+   ```
+   Login/Register → Email Verification → Profile Setup
+   ```
+
+2. **Group Discovery**
+   ```
+   Browse Groups → View Group Details → Select Plan
+   ```
+
+3. **Subscription Process**
+   ```
+   Select Plan → Payment → Receive Slack Invite → Access Content
+   ```
+
+### Creator Flow
+1. **Become Creator**
+   ```
+   Request Creator Status → Admin Approval → Creator Dashboard Access
+   ```
+
+2. **Group Creation**
+   ```
+   Create Group → Configure Plans → Submit for Review → Group Approval
+   ```
+
+3. **Group Management**
+   ```
+   Monitor Members → View Analytics → Process Payouts
+   ```
+
+### Admin Flow
+1. **Group Approval**
+   ```
+   Review Submissions → Verify Details → Approve/Reject → Notify Creator
+   ```
+
+2. **User Management**
+   ```
+   Monitor Users → Handle Reports → Manage Roles → Support Issues
+   ```
+
+3. **Platform Oversight**
+   ```
+   View Analytics → Process Payouts → System Maintenance
+   ```
+
+## Authentication & Authorization
+
+### Authentication Flow
+1. User signs up/logs in via Supabase Auth
+2. JWT token generated and stored
+3. Token used for subsequent API requests
+4. Refresh token handling for session persistence
+
+### Authorization Rules
+```sql
+-- Row Level Security (RLS) Policies
+-- Groups
+CREATE POLICY "Users can view groups they're members of"
+  ON groups FOR SELECT
+  USING (EXISTS (
+    SELECT 1 FROM group_members
+    WHERE group_id = id AND user_id = auth.uid()
+  ));
+
+-- Subscriptions
+CREATE POLICY "Users can view their own subscriptions"
+  ON subscriptions FOR SELECT
+  USING (user_id = auth.uid());
 ```
 
-#### Creator Features
-- Create and manage groups
-- Set subscription tiers and pricing
-- View member analytics
-- Access earnings dashboard
-- Manage Slack channel settings
-- View subscriber list
+## API Architecture
 
-### 3. Admin Role
-```mermaid
-graph TD
-    A[Admin Dashboard] --> B[Review Groups]
-    B --> C[Approve/Reject Groups]
-    C --> D[Manage Users]
-    D --> E[View Platform Stats]
+### RESTful Endpoints
+```typescript
+// Group Management
+POST   /api/groups            // Create group
+GET    /api/groups            // List groups
+PUT    /api/groups/:id        // Update group
+DELETE /api/groups/:id        // Delete group
+
+// Subscriptions
+POST   /api/subscriptions     // Create subscription
+GET    /api/subscriptions     // List subscriptions
+PUT    /api/subscriptions/:id // Update subscription
+
+// Admin Routes
+POST   /api/admin/groups/:id/approve  // Approve group
+POST   /api/admin/groups/:id/reject   // Reject group
+GET    /api/admin/analytics           // Get platform analytics
 ```
-
-#### Admin Features
-- Review and approve groups
-- Manage user roles
-- View platform analytics
-- Handle support requests
-- Monitor system health
-
-## Core Processes
-
-### 1. Group Creation Process
-1. Creator submits group details
-2. Admin reviews submission
-3. Upon approval:
-   - Slack channel is created
-   - Group becomes visible
-   - Creator can set up tiers
-
-### 2. Subscription Flow
-1. User selects a group and tier
-2. Processes payment through Stripe
-3. Upon successful payment:
-   - Subscription record created
-   - Slack invitation sent
-   - Access granted to channel
-
-### 3. Revenue Distribution
-1. Platform collects payment
-2. Automated split:
-   - 80% to creator
-   - 20% platform fee
-3. Payouts processed at $500 threshold
-
-## Database Schema
-
-### Core Tables
-1. **profiles**
-   - User information
-   - Role management
-   - Profile details
-
-2. **groups**
-   - Group details
-   - Creator association
-   - Slack integration
-
-3. **subscriptions**
-   - Member subscriptions
-   - Payment status
-   - Access control
-
-4. **plans**
-   - Subscription tiers
-   - Pricing
-   - Features
-
-### Relationships
-```
-profiles --< groups (creator_id)
-groups --< plans
-plans --< subscriptions
-profiles --< subscriptions (subscriber_id)
-```
-
-## Security Implementation
-
-### Authentication
-- Supabase Auth for user management
-- JWT token-based authentication
-- Role-based access control (RBAC)
-
-### Data Protection
-- Row Level Security (RLS)
-- Encrypted sensitive data
-- Secure API endpoints
-
-### Payment Security
-- Stripe for secure payments
-- PCI compliance
-- Secure webhook handling
 
 ## Integration Points
 
-### 1. Slack Integration
+### Slack Integration
+1. **Channel Creation**
+   ```typescript
+   async function createSlackChannel(group: Group) {
+     const channel = await slackClient.conversations.create({
+       name: normalizeChannelName(group.name),
+       is_private: true
+     });
+     return channel.id;
+   }
+   ```
+
+2. **Member Management**
+   ```typescript
+   async function inviteToChannel(email: string, channelId: string) {
+     const user = await slackClient.users.lookupByEmail({ email });
+     await slackClient.conversations.invite({
+       channel: channelId,
+       users: user.id
+     });
+   }
+   ```
+
+### Payment Processing
+1. **Stripe Integration**
+   ```typescript
+   async function createSubscription(userId: string, planId: string) {
+     const customer = await stripe.customers.create({
+       metadata: { userId }
+     });
+     const subscription = await stripe.subscriptions.create({
+       customer: customer.id,
+       items: [{ price: planId }]
+     });
+     return subscription;
+   }
+   ```
+
+## Error Handling
+
+### Frontend Error Handling
 ```typescript
-interface SlackIntegration {
-  createChannel(groupName: string): Promise<string>;
-  inviteMember(channelId: string, email: string): Promise<void>;
-  setChannelTopic(channelId: string, topic: string): Promise<void>;
+try {
+  await api.createSubscription(planId);
+} catch (error) {
+  if (error.code === 'insufficient_funds') {
+    showPaymentError();
+  } else {
+    showGeneralError();
+  }
 }
 ```
 
-### 2. Payment Integration
+### Backend Error Handling
 ```typescript
-interface PaymentIntegration {
-  createSubscription(userId: string, planId: string): Promise<string>;
-  processPayment(amount: number, currency: string): Promise<void>;
-  handleRefund(subscriptionId: string): Promise<void>;
-}
+app.use((error: Error, req: Request, res: Response) => {
+  logger.error(error);
+  res.status(500).json({
+    error: 'Internal Server Error',
+    requestId: req.id
+  });
+});
 ```
 
-### 3. Email Integration
-```typescript
-interface EmailIntegration {
-  sendWelcome(email: string, groupName: string): Promise<void>;
-  sendInvitation(email: string, groupDetails: GroupDetails): Promise<void>;
-  sendPaymentConfirmation(email: string, receipt: Receipt): Promise<void>;
-}
-```
-
-## Monitoring and Analytics
+## Monitoring & Analytics
 
 ### Key Metrics
 1. **Business Metrics**
-   - Active subscriptions
+   - Active subscribers
    - Revenue per group
    - Conversion rate
    - Churn rate
@@ -196,78 +262,44 @@ interface EmailIntegration {
 2. **Technical Metrics**
    - API response times
    - Error rates
-   - System uptime
    - Database performance
+   - Integration health
 
 ### Logging
-- Request/Response logging
-- Error tracking
-- Audit trails
-- Performance monitoring
+```typescript
+logger.info('Subscription created', {
+  userId,
+  groupId,
+  planId,
+  timestamp: new Date()
+});
+```
 
 ## Deployment Strategy
 
-### Environments
-1. **Development**
-   - Local development
-   - Feature testing
+### Frontend (Vercel)
+1. Push to main triggers deployment
+2. Preview deployments for PRs
+3. Automatic branch deployments
 
-2. **Staging**
-   - Integration testing
-   - Pre-release validation
+### Backend (Railway)
+1. Containerized deployment
+2. Environment variable management
+3. Automatic scaling
 
-3. **Production**
-   - Live environment
-   - Monitoring active
+## Security Measures
 
-### CI/CD Pipeline
-```mermaid
-graph LR
-    A[Code Push] --> B[Tests]
-    B --> C[Build]
-    C --> D[Deploy Staging]
-    D --> E[Tests Pass]
-    E --> F[Deploy Production]
-```
+1. **Authentication**
+   - JWT token validation
+   - Secure session management
+   - Rate limiting
 
-## Error Handling
+2. **Data Protection**
+   - Row Level Security
+   - Input validation
+   - SQL injection prevention
 
-### Types of Errors
-1. **User Errors**
-   - Invalid input
-   - Authentication failures
-   - Permission denied
-
-2. **System Errors**
-   - API failures
-   - Database errors
-   - Integration issues
-
-### Error Response Format
-```typescript
-interface ErrorResponse {
-  status: number;
-  message: string;
-  code: string;
-  details?: any;
-}
-```
-
-## Future Considerations
-
-### Scalability
-- Horizontal scaling
-- Caching strategy
-- Load balancing
-
-### Features Pipeline
-1. Analytics dashboard
-2. Advanced reporting
-3. Custom integrations
-4. Mobile application
-
-### Maintenance
-- Regular security audits
-- Performance optimization
-- Dependency updates
-- Feature deprecation 
+3. **API Security**
+   - CORS configuration
+   - Request validation
+   - Error sanitization 
